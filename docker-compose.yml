@@ -1,0 +1,16 @@
+version: '3.7'
+services:
+  terraform:
+    image: hashicorp/terraform:0.12.20
+    volumes:
+      - ./terraform:/terraformroot
+    working_dir: "/terraformroot"
+    env_file: .env
+  serverspec:
+    build:
+      context: .
+      dockerfile: serverspec/Dockerfile
+    volumes:
+      - ./serverspec:/serverspecroot
+    working_dir: "/serverspec"
+    env_file: .env
