@@ -1,6 +1,8 @@
 FROM ruby:2.7-alpine
 
-ENV SERVERSPEC_VERSION 2.41.4
-
+# alpineはsshが入っていないためインストール
+# serverspec実行時にhighlineがないとエラーが発生するためインストール
 RUN apk add --no-cache build-base && \
-    gem install serverspec -v ${SERVERSPEC_VERSION} --no-document
+    apk add openssh && \
+    gem install serverspec --no-document && \
+    gem install highline --no-document

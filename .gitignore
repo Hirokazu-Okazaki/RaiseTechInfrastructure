@@ -48,3 +48,7 @@ terraform.tfvars
 
 # configuration
 .env
+
+# ssh
+**/.ssh/*
+!**/.ssh/.keep

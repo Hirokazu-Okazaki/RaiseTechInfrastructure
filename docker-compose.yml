@@ -12,5 +12,6 @@ services:
       dockerfile: serverspec/Dockerfile
     volumes:
       - ./serverspec:/serverspecroot
-    working_dir: "/serverspec"
+      - ./serverspec/.ssh:/root/.ssh
+    working_dir: "/serverspecroot"
     env_file: .env
