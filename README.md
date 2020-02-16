@@ -40,7 +40,7 @@ vi .env
 docker-compose run terraform apply
 
 # Terraformによる環境削除
-docker-compose run terraform apply
+docker-compose run terraform destroy
 ```
 
 - Serverspec
