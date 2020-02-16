@@ -1,4 +1,5 @@
 terraform {
+  # この定数はハードコーディングしないといけない仕様
   required_version = ">= 0.12.0"
   backend "s3" {
     bucket  = "terraform-state-raisetech-okazaki"
@@ -10,7 +11,7 @@ terraform {
 
 # VPC
 resource aws_vpc this {
-  cidr_block           = "10.0.0.0/16"
+  cidr_block           = local.vpc_cidr
   instance_tenancy     = "default"
   enable_dns_support   = true
   enable_dns_hostnames = true
@@ -24,7 +25,7 @@ resource aws_vpc this {
 resource aws_subnet public_1a {
   depends_on              = [aws_vpc.this]
   vpc_id                  = aws_vpc.this.id
-  cidr_block              = "10.0.1.0/24"
+  cidr_block              = local.vpc_subnet_public_1a_cidr
   availability_zone       = "ap-northeast-1a"
   map_public_ip_on_launch = true
 
@@ -36,7 +37,7 @@ resource aws_subnet public_1a {
 resource aws_subnet public_1c {
   depends_on              = [aws_vpc.this]
   vpc_id                  = aws_vpc.this.id
-  cidr_block              = "10.0.2.0/24"
+  cidr_block              = local.vpc_subnet_public_1c_cidr
   availability_zone       = "ap-northeast-1c"
   map_public_ip_on_launch = true
 
@@ -48,7 +49,7 @@ resource aws_subnet public_1c {
 resource aws_subnet private_1a {
   depends_on        = [aws_vpc.this]
   vpc_id            = aws_vpc.this.id
-  cidr_block        = "10.0.11.0/24"
+  cidr_block        = local.vpc_subnet_private_1a_cidr
   availability_zone = "ap-northeast-1a"
 
   tags = {
@@ -59,7 +60,7 @@ resource aws_subnet private_1a {
 resource aws_subnet private_1c {
   depends_on        = [aws_vpc.this]
   vpc_id            = aws_vpc.this.id
-  cidr_block        = "10.0.12.0/24"
+  cidr_block        = local.vpc_subnet_private_1c_cidr
   availability_zone = "ap-northeast-1c"
 
   tags = {
@@ -130,7 +131,7 @@ resource aws_route_table_association private_1c {
 resource aws_vpc_endpoint s3 {
   depends_on   = [aws_vpc.this]
   vpc_id       = aws_vpc.this.id
-  service_name = "com.amazonaws.ap-northeast-1.s3"
+  service_name = "com.amazonaws.${data.aws_region.current.name}.s3"
 
   tags = {
     Name = "tf.aws_vpc_endpoint.s3"
@@ -206,9 +207,9 @@ data aws_elb_service_account this {}
 
 # S3
 resource aws_s3_bucket lb_logs {
-  bucket = "tf-raisetech-accesslog-bucket"
+  bucket = local.lb-accesslog-bucket-name
   acl    = "private"
-  region = "ap-northeast-1"
+  region = data.aws_region.current.name
 
   policy = <<POLICY
 {
@@ -220,7 +221,7 @@ resource aws_s3_bucket lb_logs {
         "s3:PutObject"
       ],
       "Effect": "Allow",
-      "Resource": "arn:aws:s3:::tf-raisetech-accesslog-bucket/*",
+      "Resource": "arn:aws:s3:::${local.lb-accesslog-bucket-name}/*",
       "Principal": {
         "AWS": [
           "${data.aws_elb_service_account.this.arn}"
@@ -244,7 +245,7 @@ POLICY
   }
 
   tags = {
-    Name = "tf-raisetech-accesslog-bucket"
+    Name = "${local.lb-accesslog-bucket-name}"
   }
 }
 
@@ -352,7 +353,7 @@ resource aws_lb_listener https {
 
 # ACM
 resource aws_acm_certificate this {
-  domain_name       = "*.raisetechportfolio.tk"
+  domain_name       = "*.${local.domain_name}"
   validation_method = "DNS"
 
   lifecycle {
@@ -372,7 +373,7 @@ resource aws_acm_certificate_validation this {
 
 # Route53
 resource aws_route53_zone this {
-  name = "raisetechportfolio.tk"
+  name = local.domain_name
 }
 
 resource aws_route53_record cert_validation {
@@ -395,7 +396,7 @@ resource aws_route53_record www {
   ]
 
   zone_id = aws_route53_zone.this.zone_id
-  name    = "www.raisetechportfolio.tk"
+  name    = "${local.subdomain_name}.${local.domain_name}"
   type    = "A"
 
   alias {
@@ -445,22 +446,22 @@ resource aws_db_instance this {
     aws_ssm_parameter.db_password,
   ]
 
-  identifier                = "tfdbinstance"
+  identifier                = local.db_identifier
   allocated_storage         = 20
   storage_type              = "gp2"
   engine                    = "mysql"
-  engine_version            = "5.7"
+  engine_version            = local.db_engine_version
   instance_class            = "db.t2.micro"
   name                      = "tfdb"
   username                  = aws_ssm_parameter.db_username.value
   password                  = aws_ssm_parameter.db_password.value
-  parameter_group_name      = "default.mysql5.7"
+  parameter_group_name      = local.db_parameter_group_name
   vpc_security_group_ids    = [aws_security_group.db.id]
   db_subnet_group_name      = aws_db_subnet_group.this.name
   backup_retention_period   = "1"
   apply_immediately         = "true"
   skip_final_snapshot       = true
-  final_snapshot_identifier = "tffinalidentifier"
+  final_snapshot_identifier = local.db_final_snapshot_identifier
 }
 
 resource aws_db_subnet_group this {
@@ -476,7 +477,7 @@ resource aws_db_subnet_group this {
 # RDS DB_User ユーザー名をパラメータ登録する（暗号化なし）
 resource aws_ssm_parameter db_username {
   name  = "/org/repo/dev/DB_USERNAME"
-  value = "RaiseTechUser"
+  value = local.db_username
   type  = "String"
 }
 
@@ -540,10 +541,10 @@ resource aws_security_group_rule outbound_ec2 {
 
 # EC2
 resource aws_instance app_1a {
-  ami                    = "ami-03221ff557052673d"
+  ami                    = local.ec2_base_ami
   availability_zone      = "ap-northeast-1a"
   subnet_id              = aws_subnet.public_1a.id
-  instance_type          = "t2.small"
+  instance_type          = local.ec2_instance_type
   vpc_security_group_ids = [aws_security_group.ec2.id]
 
   tags = {
