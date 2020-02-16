@@ -17,7 +17,8 @@ resource aws_vpc this {
   enable_dns_hostnames = true
 
   tags = {
-    Name = "tf.aws_vpc.this"
+    Name    = "${local.project_name}-vpc"
+    Project = local.project_name
   }
 }
 
@@ -30,7 +31,8 @@ resource aws_subnet public_1a {
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "tf.aws_subnet.public_1a"
+    Name    = "${local.project_name}-subnet-public-1a"
+    Project = local.project_name
   }
 }
 
@@ -42,7 +44,8 @@ resource aws_subnet public_1c {
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "tf.aws_subnet.public_1c"
+    Name    = "${local.project_name}-subnet-public-1c"
+    Project = local.project_name
   }
 }
 
@@ -53,7 +56,8 @@ resource aws_subnet private_1a {
   availability_zone = "ap-northeast-1a"
 
   tags = {
-    Name = "tf.aws_subnet.private_1a"
+    Name    = "${local.project_name}-subnet-private-1a"
+    Project = local.project_name
   }
 }
 
@@ -64,7 +68,8 @@ resource aws_subnet private_1c {
   availability_zone = "ap-northeast-1c"
 
   tags = {
-    Name = "tf.aws_subnet.private_1c"
+    Name    = "${local.project_name}-subnet-private-1c"
+    Project = local.project_name
   }
 }
 
@@ -74,7 +79,8 @@ resource aws_internet_gateway this {
   vpc_id     = aws_vpc.this.id
 
   tags = {
-    Name = "tf.aws_internet_gateway.this"
+    Name    = "${local.project_name}-internet-gateway"
+    Project = local.project_name
   }
 }
 
@@ -89,7 +95,8 @@ resource aws_route_table public {
   }
 
   tags = {
-    Name = "tf.aws_route_table.public"
+    Name    = "${local.project_name}-route-table-public"
+    Project = local.project_name
   }
 }
 
@@ -98,7 +105,8 @@ resource aws_route_table private {
   vpc_id     = aws_vpc.this.id
 
   tags = {
-    Name = "tf.aws_route_table.private"
+    Name    = "${local.project_name}-route-table-private"
+    Project = local.project_name
   }
 }
 
@@ -134,7 +142,8 @@ resource aws_vpc_endpoint s3 {
   service_name = "com.amazonaws.${data.aws_region.current.name}.s3"
 
   tags = {
-    Name = "tf.aws_vpc_endpoint.s3"
+    Name    = "${local.project_name}-endpoint-s3"
+    Project = local.project_name
   }
 }
 
@@ -163,8 +172,13 @@ resource aws_vpc_endpoint_route_table_association private_s3 {
 resource aws_security_group alb {
   depends_on  = [aws_vpc.this]
   vpc_id      = aws_vpc.this.id
-  name        = "tf.aws_security_group.alb"
+  name        = "${local.project_name}-sg-alb"
   description = "Allow http and https traffic."
+
+  tags = {
+    Name    = "${local.project_name}-sg-alb"
+    Project = local.project_name
+  }
 }
 
 # SecurityGroupRule Allow 80 port
@@ -207,9 +221,10 @@ data aws_elb_service_account this {}
 
 # S3
 resource aws_s3_bucket lb_logs {
-  bucket = local.lb-accesslog-bucket-name
-  acl    = "private"
-  region = data.aws_region.current.name
+  bucket        = local.lb-accesslog-bucket-name
+  acl           = "private"
+  region        = data.aws_region.current.name
+  force_destroy = true # 練習用なので強制削除可能とする
 
   policy = <<POLICY
 {
@@ -245,7 +260,8 @@ POLICY
   }
 
   tags = {
-    Name = "${local.lb-accesslog-bucket-name}"
+    Name    = "${local.project_name}-${local.lb-accesslog-bucket-name}"
+    Project = local.project_name
   }
 }
 
@@ -268,7 +284,7 @@ resource aws_lb this {
   ]
 
   load_balancer_type         = "application"
-  name                       = "tf-aws-lb"
+  name                       = "${local.project_name}-alb"
   internal                   = false
   enable_deletion_protection = false
   security_groups            = [aws_security_group.alb.id]
@@ -282,12 +298,17 @@ resource aws_lb this {
     bucket  = aws_s3_bucket.lb_logs.bucket
     enabled = true
   }
+
+  tags = {
+    Name    = "${local.project_name}-alb"
+    Project = local.project_name
+  }
 }
 
 # ALB TargetGroup
 resource aws_alb_target_group this {
   depends_on = [aws_lb.this]
-  name       = "tf-aws-alb-target-group-this"
+  name       = "${local.project_name}-alb-tg"
   port       = 80
   protocol   = "HTTP"
   vpc_id     = aws_vpc.this.id
@@ -300,6 +321,11 @@ resource aws_alb_target_group this {
     timeout             = 5
     unhealthy_threshold = 2
     matcher             = 200
+  }
+
+  tags = {
+    Name    = "${local.project_name}-alb-tg"
+    Project = local.project_name
   }
 }
 
@@ -335,6 +361,7 @@ resource aws_lb_listener http {
 
 resource aws_lb_listener https {
   depends_on = [
+    aws_lb.this,
     aws_alb_target_group.this,
     aws_acm_certificate.this,
   ]
@@ -353,11 +380,17 @@ resource aws_lb_listener https {
 
 # ACM
 resource aws_acm_certificate this {
-  domain_name       = "*.${local.domain_name}"
-  validation_method = "DNS"
+  domain_name               = "*.${local.domain_name}"
+  subject_alternative_names = [local.domain_name]
+  validation_method         = "DNS"
 
   lifecycle {
     create_before_destroy = true
+  }
+
+  tags = {
+    Name    = "${local.project_name}-acm-certificate"
+    Project = local.project_name
   }
 }
 
@@ -374,6 +407,11 @@ resource aws_acm_certificate_validation this {
 # Route53
 resource aws_route53_zone this {
   name = local.domain_name
+
+  tags = {
+    Name    = "${local.project_name}-route53-zone"
+    Project = local.project_name
+  }
 }
 
 resource aws_route53_record cert_validation {
@@ -410,8 +448,13 @@ resource aws_route53_record www {
 resource aws_security_group db {
   depends_on  = [aws_vpc.this]
   vpc_id      = aws_vpc.this.id
-  name        = "tf.aws_security_group.db"
+  name        = "${local.project_name}-sg-db"
   description = "Allow RDS traffic."
+
+  tags = {
+    Name    = "${local.project_name}-sg-db"
+    Project = local.project_name
+  }
 }
 
 # SecurityGroupRule Allow 3306 port
@@ -451,8 +494,8 @@ resource aws_db_instance this {
   storage_type              = "gp2"
   engine                    = "mysql"
   engine_version            = local.db_engine_version
-  instance_class            = "db.t2.micro"
-  name                      = "tfdb"
+  instance_class            = local.db_instance_class
+  name                      = local.project_name
   username                  = aws_ssm_parameter.db_username.value
   password                  = aws_ssm_parameter.db_password.value
   parameter_group_name      = local.db_parameter_group_name
@@ -462,45 +505,76 @@ resource aws_db_instance this {
   apply_immediately         = "true"
   skip_final_snapshot       = true
   final_snapshot_identifier = local.db_final_snapshot_identifier
+
+  tags = {
+    Name    = "${local.project_name}-db"
+    Project = local.project_name
+  }
 }
 
 resource aws_db_subnet_group this {
-  name        = "tf_dbsubnet"
-  description = "It is a DB subnet group on tf_vpc."
+  depends_on = [
+    aws_subnet.private_1a,
+    aws_subnet.private_1c,
+  ]
+
+  name        = "${local.project_name}-db-subnet-group"
+  description = "It is a DB subnet group."
 
   subnet_ids = [
     aws_subnet.private_1a.id,
     aws_subnet.private_1c.id,
   ]
+
+  tags = {
+    Name    = "${local.project_name}-db-subnet-group"
+    Project = local.project_name
+  }
 }
 
 # RDS DB_User ユーザー名をパラメータ登録する（暗号化なし）
 resource aws_ssm_parameter db_username {
-  name  = "/org/repo/dev/DB_USERNAME"
+  name  = "${local.project_name}-db-username"
   value = local.db_username
   type  = "String"
+
+  tags = {
+    Name    = "${local.project_name}-ssm-parameter"
+    Project = local.project_name
+  }
 }
 
 # RDS DB_Password 16文字のパスワードを自動生成
 resource random_password db_password {
-  length           = 16
-  special          = true
-  override_special = "!#@"
+  length  = 16
+  special = true
+  #override_special = "!#@"
+  override_special = "!#()-[]<>"
 }
 
 # RDS DB_Password 生成したパスワードをパラメータ登録する（暗号化あり）
 resource aws_ssm_parameter db_password {
-  name  = "/org/repo/dev/DB_PASSWORD"
+  name  = "${local.project_name}-db-password"
   value = random_password.db_password.result
   type  = "SecureString"
+
+  tags = {
+    Name    = "${local.project_name}-ssm-parameter"
+    Project = local.project_name
+  }
 }
 
 # SecurityGroup EC2
 resource aws_security_group ec2 {
   depends_on  = [aws_vpc.this]
   vpc_id      = aws_vpc.this.id
-  name        = "tf.aws_security_group.ec2"
+  name        = "${local.project_name}-sg-ec2"
   description = "Allow http and https traffic."
+
+  tags = {
+    Name    = "${local.project_name}-sg-ec2"
+    Project = local.project_name
+  }
 }
 
 # SecurityGroupRule Allow 22 port
@@ -544,10 +618,12 @@ resource aws_instance app_1a {
   ami                    = local.ec2_base_ami
   availability_zone      = "ap-northeast-1a"
   subnet_id              = aws_subnet.public_1a.id
+  key_name               = local.ec2_key_name
   instance_type          = local.ec2_instance_type
   vpc_security_group_ids = [aws_security_group.ec2.id]
 
   tags = {
-    Name = "tf.aws_instance.app_1a"
+    Name    = "${local.project_name}-instance-app-1a"
+    Project = local.project_name
   }
 }

@@ -2,7 +2,7 @@ data "aws_region" "current" {}
 
 locals {
   # プロジェクト名
-  project_name = "RaiseTechInfrastructure"
+  project_name = "raisetechinfrastructure"
 
   # Route 53 ドメイン名(freenomで取得済)
   domain_name    = "raisetechportfolio.tk"
@@ -16,16 +16,18 @@ locals {
   vpc_subnet_private_1c_cidr = "10.0.12.0/24"
 
   # ロードバランサー
-  lb-accesslog-bucket-name = "tf-raisetech-accesslog-bucket"
+  lb-accesslog-bucket-name = "raisetechportfolio-accesslog-bucket"
 
   # RDS(MySQL) パスワードはSSMで暗号化して管理
-  db_identifier                = "tfdbinstance"
+  db_identifier                = "raisetechdbinstance"
   db_username                  = "RaiseTechUser"
   db_engine_version            = "5.7"
+  db_instance_class            = "db.t2.micro"
   db_parameter_group_name      = "default.mysql5.7"
-  db_final_snapshot_identifier = "tffinalidentifier"
+  db_final_snapshot_identifier = "raisetechfinalidentifier"
 
-  # EC2
+  # EC2 AMIは自作したもの(private)
   ec2_base_ami      = "ami-03221ff557052673d"
   ec2_instance_type = "t2.small"
+  ec2_key_name      = "RaiseTechKeyPair"
 }
