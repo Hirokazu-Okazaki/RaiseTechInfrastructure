@@ -36,7 +36,8 @@ end
 describe host(domain_name) do
   # ドメイン名の名前解決
   it { should be_resolvable }
-  it { should be_reachable }
+  # Pingのテスト。Pingのポートを開けてないため到達不可
+  it { should_not be_reachable }
 end
 
 describe command("curl -L https://#{domain_name} -o /dev/null -w '%{http_code}\n' -s") do
